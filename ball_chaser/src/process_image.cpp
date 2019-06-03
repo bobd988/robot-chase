@@ -1,9 +1,6 @@
 #include "ros/ros.h"
 #include "ball_chaser/DriveToTarget.h"
 #include <sensor_msgs/Image.h>
-#include <numeric>
-
-using namespace std;
 
 // Define a global client that can request services
 ros::ServiceClient client;
@@ -11,16 +8,14 @@ ros::ServiceClient client;
 // This function calls the command_robot service to drive the robot in the specified direction
 void drive_robot(float lin_x, float ang_z)
 {
-    // TODO: Request a service and pass the velocities to it to drive the robot   
-    // Request service with velocities
+    // TODO: Request a service and pass the velocities to it to drive the robot
     ball_chaser::DriveToTarget srv;
     srv.request.linear_x = lin_x;
     srv.request.angular_z = ang_z;
-    
-    // Call the DriveToTarget service and pass the requested velocities
-    if (!client.call(srv)) {
-	    ROS_ERROR("Failed to call service DriveToTarget.");
-	}
+
+    // Call the command_robot service and pass the requested motor commands
+    if (!client.call(srv))
+        ROS_ERROR("Failed to call service command_robot");
 }
 
 // This callback function continuously executes and reads the image data
@@ -28,33 +23,53 @@ void process_image_callback(const sensor_msgs::Image img)
 {
 
     int white_pixel = 255;
-    int height = img.height;
-    int step = img.step;   
-    float x = 0.0;
-    float z = 0.0;
-    float offset_accumulated = 0;
-    int count_total = 0;
-  
-    for (int i = 0; i < height ; i++) {
-        for (int j = 0; j < step; j++) {
-            if (img.data[i * step + j] == white_pixel) {
-                offset_accumulated += j - step / 2.0;
-                count_total++;
-            }
-        }
-    }
 
-    // no pixel, stop
-    if (count_total == 0) {
-        x = 0.0;
-        z = 0.0;
+    bool isFound = false;
+    int row = 0;
+    int step = 0;
+    int i = 0;
+   
+    for (row = 0; row < img.height && isFound == false; row++)
+    {
+        for (step = 0; step < img.step && isFound == false; ++step)
+        {   
+            i = (row*img.step)+step;
+            //ROS_INFO("row: %d, step: %d, i: %d", row, step, i);
+            if (img.data[i] == white_pixel)
+            {   
+                isFound = true;
+                ROS_INFO("found white i:%d",i);
+                
+            }
+		}
     }
-    else {
-        x = 0.1;
-        z = -4.0 * offset_accumulated / count_total / (step /2.0);
+    if (isFound)
+    {
+        // split left, mid, or right side 
+        int imgThird = img.width/3;
+        int col = step/3;
+        if (col < imgThird) 
+        {
+            drive_robot(0.1, 0.1);
+            ROS_INFO("Move left");
+        } 
+        else if (col >= imgThird && col < 2*imgThird)
+        {
+            drive_robot(0.5, 0.0);
+            ROS_INFO("Move straight");
+        }
+        else if (col >= 2*imgThird)
+        {
+            drive_robot(0.1, -0.1);
+            ROS_INFO("Move right");
+        }
+        
     }
-    
-    drive_robot(x, z);
+  	else 
+    {
+        drive_robot(0.0, 0.0);
+        ROS_INFO("Not found - STOP");
+    }
 }
 
 int main(int argc, char** argv)
