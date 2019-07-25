@@ -35,7 +35,12 @@ void process_image_callback(const sensor_msgs::Image img)
         {   
             i = (row*img.step)+step;
             //ROS_INFO("row: %d, step: %d, i: %d", row, step, i);
-            if (img.data[i] == white_pixel)
+            //if (img.data[i] == white_pixel)
+           int red_channel = img.data[i];
+           int green_channel = img.data[i+1];
+           int blue_channel = img.data[i+2];
+           //if (img.data[i] == white_pixel)
+           if (red_channel == 255 && green_channel == 255 && blue_channel == 255)
             {   
                 isFound = true;
                 ROS_INFO("found white i:%d",i);
